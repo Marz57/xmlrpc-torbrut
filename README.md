@@ -2,12 +2,12 @@
 
 <table width="100%">
   <tr>
-    <td width="50%" align="center">
-      <b font-size="22px">📷 Preview 1: Dasbor Menu & Otomatis Scan User</b><br>
+    <td width="51%" align="center">
+      <font face="Arial, Helvetica, sans-serif" size="0.8rem"><b>📷 Preview 1: Dasbor Menu & Otomatis Scan User</b></font><br>
       <img src="screenshoot/preview-1.png" alt="Menu Utama Skrip" width="100%">
     </td>
     <td width="50%" align="center">
-      <b>📷 Preview 2: Proses Bruteforce & Rotasi IP Otomatis</b><br>
+      <font face="Arial, Helvetica, sans-serif" size="0.8rem"><b>📷 Preview 2: Proses Bruteforce & Rotasi IP Otomatis</b></font><br>
       <img src="screenshoot/preview-2.png" alt="Proses Rotasi IP Threading" width="100%">
     </td>
   </tr>
@@ -34,8 +34,8 @@ Skrip pentesting modular untuk mengaudit celah keamanan pada endpoint `xmlrpc.ph
 ### 1. Clone Repositori
 
 ```bash
-git clone https://github.com
-cd xmlrpc-torbrute
+git clone https://github.com/Marz57/xmlrpc-torbrut
+cd xmlrpc-torbrut
 ```
 
 ### 2. Setup Virtual Environment & Install Dependensi Python
@@ -105,7 +105,7 @@ Agar fitur rotasi IP otomatis dapat bekerja, skrip membutuhkan layanan TOR lokal
 Jalankan skrip utama dengan menyertakan parameter argumen target URL `-u` atau `--url`:
 
 ```bash
-python3 xmlrpc_final.py -u http://target-website.local/xmlrpc.php
+python3 torbrute.py -u http://target-website.local/xmlrpc.php
 ```
 
 ### Alur Navigasi Menu:
