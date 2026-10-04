@@ -21,8 +21,8 @@ Skrip pentesting modular untuk mengaudit celah keamanan pada endpoint `xmlrpc.ph
 
 ## 🔥 Fitur Utama
 
-- **Otomatis Scan Username:** Menembak REST API WordPress target (`/wp-json/wp/v2/users`) saat program pertama kali dibuka untuk mengenali user valid.
-- **Transparansi Rotasi IP TOR:** Menampilkan log perubahan alamat IP secara _real-time_ (`IP Lama ➡️ IP Baru`) lengkap dengan animasi _countdown_ 3 detik untuk sinkronisasi sirkuit.
+- **Otomatis Scan Username dan Cek XML-RPC:** Menembak REST API WordPress target (`/wp-json/wp/v2/users`) saat program pertama kali dibuka untuk mengenali user dan XML-RPC yg valid.
+- **Transparansi Rotasi IP TOR:** Menampilkan log perubahan alamat IP secara _real-time_ (`IP Lama ➡️ IP Baru`) ketika sudah ter-blokir/kena rate limit _otomatis_.
 - **Dua Mode Bruteforce:** Mendukung metode konvensional (_Single_) multi-threading dan metode efisien _Multicall_ (5 pasang password dalam 1 paket request XML).
 - **Manajemen Host & User Fleksibel:** Opsi ganti target URL atau modifikasi daftar username langsung dari dalam dasbor menu navigasi tanpa mematikan skrip.
 - **Pencatatan Otomatis:** Kombinasi kredensial yang berhasil tembus langsung dicatat secara otomatis ke dalam berkas `success.txt`.
@@ -105,15 +105,19 @@ Agar fitur rotasi IP otomatis dapat bekerja, skrip membutuhkan layanan TOR lokal
 Jalankan skrip utama dengan menyertakan parameter argumen target URL `-u` atau `--url`:
 
 ```bash
-python3 torbrute.py -u http://target-website.local/xmlrpc.php
+python3 torbrute.py -u http://target.com
+```
+atau
+```bash
+./torbrute.py -u http://target.com
 ```
 
 ### Alur Navigasi Menu:
 
 1. **Menu 1 & 2:** Mengalihkan jalur lalu lintas koneksi (`DIRECT` internet biasa atau dialihkan lewat `TOR Proxy`).
-2. **Menu 3 & 4:** Melakukan pengecekan respon server dan melakukan _stress test_ batasan request (Rate Limiting).
-3. **Menu 6 & 7:** Memulai serangan _bruteforce_. Kamu akan ditanya jenis penyerangan (_multicall_ otomatis rotasi tiap 3 batch atau _single_ otomatis rotasi tiap window thread selesai).
-4. **Menu 9:** Digunakan untuk menginput daftar nama user secara manual jika REST API web target diproteksi atau dikunci.
+2. **Menu 3 & 4:** Untuk memastikan bahwa XML-RPC aktif/tidak terhadap _GET_ atau _POST_ sebelum bruteforce, dan melakukan pengecekan respon server dan melakukan _stress test_ batasan request (Rate Limiting).
+3. **Menu 6 & 7:** Memulai serangan _bruteforce_. Kamu akan ditanya jenis penyerangan (_multicall_ atau _single_ otomatis rotasi setiap IP di Block/Rate Limit jika sedang memakai mode TOR).
+4. **Menu 8:** Digunakan untuk mengganti host/target langsung tanpa keluar/run script lagi.
 
 ---
 
