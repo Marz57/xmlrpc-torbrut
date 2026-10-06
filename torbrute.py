@@ -240,7 +240,7 @@ def run_bruteforce(url, use_tor, target_usernames, xmlrpc_status):
                 
                 r_test = check_s.post(url, data=dummy_payload, headers=headers, timeout=10, verify=False)
 
-                if r_test.status_code in [200, 405]: 
+                if r_test.status_code == 200: 
                     init_ready = True
                     check_s.close()
                 else: 
